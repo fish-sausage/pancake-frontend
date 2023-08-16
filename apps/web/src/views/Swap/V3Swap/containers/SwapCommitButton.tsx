@@ -48,7 +48,6 @@ import { useSlippageAdjustedAmounts, useSwapInputError, useParsedAmounts, useSwa
 import { TransactionRejectedError } from '../hooks/useSendSwapTransaction'
 import { computeTradePriceBreakdown } from '../utils/exchange'
 import { ConfirmSwapModal } from './ConfirmSwapModal'
-import { useWallchainApi } from '../hooks/useWallchain'
 
 const SettingsModalWithCustomDismiss = withCustomOnDismiss(SettingsModal)
 
@@ -86,12 +85,9 @@ export const SwapCommitButton = memo(function SwapCommitButton({
   const slippageAdjustedAmounts = useSlippageAdjustedAmounts(trade)
 
   const deadline = useTransactionDeadline()
-  const [statusWallchain, approvalAddressForWallchain, wallchainMasterInput] = useWallchainApi(trade, deadline)
 
-  const routerAddress =
-    statusWallchain === 'found'
-      ? approvalAddressForWallchain
-      : SWAP_ROUTER_ADDRESSES[trade?.inputAmount?.currency?.chainId]
+  const [overrideSpenderAddress, setOverrideSpenderAddress] = useState<string | undefined>(undefined)
+  const routerAddress = overrideSpenderAddress || SWAP_ROUTER_ADDRESSES[trade?.inputAmount?.currency?.chainId]
   const amountToApprove = slippageAdjustedAmounts[Field.INPUT]
   const relevantTokenBalances = useCurrencyBalances(account ?? undefined, [
     inputCurrency ?? undefined,
@@ -109,11 +105,17 @@ export const SwapCommitButton = memo(function SwapCommitButton({
   const parsedAmounts = useParsedAmounts(trade, currencyBalances, showWrap)
   const parsedIndepentFieldAmount = parsedAmounts[independentField]
 
+  // check if user has gone through approval process, used to show two step buttons, reset on token change
+  const [approvalSubmitted, setApprovalSubmitted] = useState<boolean>(false)
+
   // the callback to execute the swap
   const { callback: swapCallback, error: swapCallbackError } = useSwapCallback({
     trade,
     deadline,
-    wallchainMasterInput,
+    onForceApproval: (spender) => {
+      setOverrideSpenderAddress(spender)
+      setApprovalSubmitted(false)
+    },
   })
 
   const [{ tradeToConfirm, swapErrorMessage, attemptingTxn, txHash }, setSwapState] = useState<{
@@ -127,9 +129,6 @@ export const SwapCommitButton = memo(function SwapCommitButton({
     swapErrorMessage: undefined,
     txHash: undefined,
   })
-
-  // check if user has gone through approval process, used to show two step buttons, reset on token change
-  const [approvalSubmitted, setApprovalSubmitted] = useState<boolean>(false)
 
   // Handlers
   const handleConfirmDismiss = useCallback(() => {
@@ -345,9 +344,7 @@ export const SwapCommitButton = memo(function SwapCommitButton({
           }}
           width="48%"
           id="swap-button"
-          disabled={
-            !isValid || !approved || (priceImpactSeverity > 3 && !isExpertMode) || statusWallchain === 'pending'
-          }
+          disabled={!isValid || !approved || (priceImpactSeverity > 3 && !isExpertMode)}
         >
           {(tradeLoading && (
             <>
@@ -375,13 +372,7 @@ export const SwapCommitButton = memo(function SwapCommitButton({
         }}
         id="swap-button"
         width="100%"
-        disabled={
-          !isValid ||
-          (priceImpactSeverity > 3 && !isExpertMode) ||
-          !!swapCallbackError ||
-          !approved ||
-          statusWallchain === 'pending'
-        }
+        disabled={!isValid || (priceImpactSeverity > 3 && !isExpertMode) || !!swapCallbackError || !approved}
       >
         {swapInputError ||
           (tradeLoading && (

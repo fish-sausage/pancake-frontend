@@ -35,7 +35,7 @@ interface UseSwapCallbackArgs {
   // signatureData: SignatureData | null | undefined
   deadline?: bigint
   feeOptions?: FeeOptions
-  wallchainMasterInput?: string
+  onForceApproval?: (spender: string) => void
 }
 
 // returns a function that will execute a swap, if the parameters are all valid
@@ -45,7 +45,7 @@ export function useSwapCallback({
   // signatureData,
   deadline,
   feeOptions,
-  wallchainMasterInput,
+  onForceApproval,
 }: UseSwapCallbackArgs): UseSwapCallbackReturns {
   const { t } = useTranslation()
   const { account, chainId } = useAccountActiveChain()
@@ -62,7 +62,7 @@ export function useSwapCallback({
     deadline,
     feeOptions,
   )
-  const wallchainSwapCalls = useWallchainSwapCallArguments(trade, swapCalls, account, wallchainMasterInput)
+  const wallchainSwapCalls = useWallchainSwapCallArguments(trade, swapCalls, account, onForceApproval)
   const { callback } = useSendSwapTransaction(account, chainId, trade, wallchainSwapCalls)
 
   return useMemo(() => {

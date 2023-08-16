@@ -14,6 +14,7 @@ import { useSwapState } from 'state/swap/hooks'
 import ConfirmSwapModalContainer from '../../components/ConfirmSwapModalContainer'
 import { SwapTransactionErrorContent } from '../../components/SwapTransactionErrorContent'
 import { TransactionConfirmSwapContent } from '../components'
+import { useWallchainStatus } from '../hooks/useWallchain'
 
 interface ConfirmSwapModalProps {
   trade?: SmartRouterTrade<TradeType>
@@ -74,6 +75,8 @@ export const ConfirmSwapModal = memo<InjectedModalProps & ConfirmSwapModalProps>
       )
     ) : null
 
+  const [wallchainStatus] = useWallchainStatus()
+
   // text to show while loading
   const pendingText = useMemo(() => {
     return t('Swapping %amountA% %symbolA% for %amountB% %symbolB%', {
@@ -89,13 +92,13 @@ export const ConfirmSwapModal = memo<InjectedModalProps & ConfirmSwapModalProps>
   return (
     <ConfirmSwapModalContainer handleDismiss={handleDismiss}>
       {attemptingTxn ? (
-        <ConfirmationPendingContent pendingText={pendingText} />
+        <ConfirmationPendingContent pendingText={pendingText} wallchainStatus={wallchainStatus} />
       ) : txHash ? (
         <TransactionSubmittedContent
           chainId={chainId}
           hash={txHash}
           onDismiss={handleDismiss}
-          currencyToAdd={trade?.outputAmount.currency}
+          currencyToAdd={trade?.outputAmount?.currency}
         />
       ) : null}
       {confirmationContent}
