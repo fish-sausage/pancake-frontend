@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import type WallchainSDK from '@wallchain/sdk'
+import type { TMEVFoundResponse } from '@wallchain/sdk'
 import { TOptions } from '@wallchain/sdk'
 import { Token, TradeType, Currency, ChainId } from '@pancakeswap/sdk'
 import { SmartRouterTrade } from '@pancakeswap/smart-router/evm'
@@ -52,10 +53,10 @@ const loadData = async (account: string, sdk: WallchainSDK, swapCalls: SwapCall[
 
     if (resp.MEVFound) {
       const approvalFor = await sdk.getSpenderForAllowance()
-      return ['found', approvalFor, resp.masterInput]
+      return ['found', approvalFor, resp.searcher_request, resp.searcher_signature] as const
     }
   }
-  return ['not-found', undefined, undefined]
+  return ['not-found', undefined, undefined, undefined]
 }
 const wrappedLoadData = limiter.wrap(loadData)
 
@@ -99,10 +100,10 @@ export function useWallchainApi(
   trade?: SmartRouterTrade<TradeType>,
   deadline?: bigint,
   feeOptions?: FeeOptions,
-): [WallchainStatus, string | undefined, string | undefined] {
+): [WallchainStatus, string | undefined, [TMEVFoundResponse['searcher_request'], string] | undefined] {
   const [approvalAddress, setApprovalAddress] = useState<undefined | string>(undefined)
   const [status, setStatus] = useWallchainStatus()
-  const [masterInput, setMasterInput] = useState<undefined | string>(undefined)
+  const [masterInput, setMasterInput] = useState<undefined | [TMEVFoundResponse['searcher_request'], string]>(undefined)
   const { data: walletClient } = useWalletClient()
   const { account } = useAccountActiveChain()
   const [allowedSlippageRaw] = useUserSlippage() || [INITIAL_ALLOWED_SLIPPAGE]
@@ -125,10 +126,10 @@ export function useWallchainApi(
     if (includesPair) {
       setStatus('pending')
       wrappedLoadData(account, sdk, swapCalls)
-        .then(([reqStatus, address, recievedMasterInput]) => {
+        .then(([reqStatus, address, searcherRequest, searcherSignature]) => {
           setStatus(reqStatus as WallchainStatus)
           setApprovalAddress(address)
-          setMasterInput(recievedMasterInput)
+          setMasterInput([searcherRequest as TMEVFoundResponse['searcher_request'], searcherSignature])
         })
         .catch((e) => {
           setStatus('not-found')
@@ -150,7 +151,7 @@ export function useWallchainSwapCallArguments(
   trade: SmartRouterTrade<TradeType> | undefined | null,
   previousSwapCalls: { address: `0x${string}`; calldata: `0x${string}`; value: `0x${string}` }[] | undefined | null,
   account: string | undefined | null,
-  masterInput?: string,
+  masterInput?: [TMEVFoundResponse['searcher_request'], string],
 ) {
   const [swapCalls, setSwapCalls] = useState<SwapCall[] | WallchainSwapCall[]>([])
   const { data: walletClient } = useWalletClient()
@@ -192,24 +193,21 @@ export function useWallchainSwapCallArguments(
         }
 
         const data = await sdk.createNewTransaction(
-          {
-            value: previousSwapCalls[0].value,
-            to: previousSwapCalls[0].address,
-            data: previousSwapCalls[0].calldata,
-            from: account,
-            srcToken: srcToken as `0x${string}`,
-            dstToken: dstToken as `0x${string}`,
-            amountIn,
-            isPermit: false,
-          },
-          masterInput,
+          account,
+          needPermit,
+          previousSwapCalls[0].calldata,
+          amountIn,
+          srcToken as `0x${string}`,
+          dstToken as `0x${string}`,
+          masterInput[1],
+          { ...masterInput[0], from: account },
           witness,
         )
 
         return {
           address: data.to as `0x${string}`,
           calldata: data.data as `0x${string}`,
-          value: data.value as `0x${string}`,
+          value: previousSwapCalls[0].value as `0x${string}`,
         }
       } catch (e) {
         return previousSwapCalls[0]
