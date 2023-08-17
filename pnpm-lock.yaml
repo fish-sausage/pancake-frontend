@@ -634,12 +634,18 @@ importers:
       '@wallchain/sdk':
         specifier: ^0.5.5
         version: 0.5.5
+      '@wallchain/sdk':
+        specifier: ^0.5.5
+        version: 0.5.5
       ajv:
         specifier: ^6.12.3
         version: 6.12.6
       bignumber.js:
         specifier: ^9.0.0
         version: 9.1.1
+      bottleneck:
+        specifier: ^2.19.5
+        version: 2.19.5
       bottleneck:
         specifier: ^2.19.5
         version: 2.19.5
