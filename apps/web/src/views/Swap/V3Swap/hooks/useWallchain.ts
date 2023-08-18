@@ -26,10 +26,15 @@ interface SwapCall {
   value: Hex
 }
 interface WallchainSwapCall {
-  getCall: () => Promise<SwapCall>
+  getCall: () => Promise<SwapCall | { error: string }>
+}
+
+interface RevertedWallchainSwapCall {
+  reverted: string
 }
 
 export type WallchainStatus = 'found' | 'pending' | 'not-found'
+export type TWallchainMasterInput = [TMEVFoundResponse['searcher_request'], string] | undefined
 
 const limiter = new Bottleneck({
   maxConcurrent: 1, // only allow one request at a time
@@ -39,7 +44,7 @@ const limiter = new Bottleneck({
 
 const overrideAddresses = {
   // MetaSwapWrapper
-  56: '0x6346e0a39e2fBbc133e4ce8390ab567108e62aEe',
+  56: '0x837E29B644fD051CfAcabb882f2EBf408b9cd7Ee',
 }
 
 const loadData = async (account: string, sdk: WallchainSDK, swapCalls: SwapCall[]) => {
@@ -152,8 +157,9 @@ export function useWallchainSwapCallArguments(
   previousSwapCalls: { address: `0x${string}`; calldata: `0x${string}`; value: `0x${string}` }[] | undefined | null,
   account: string | undefined | null,
   masterInput?: [TMEVFoundResponse['searcher_request'], string],
-) {
+): [SwapCall[] | WallchainSwapCall[], RevertedWallchainSwapCall | undefined] {
   const [swapCalls, setSwapCalls] = useState<SwapCall[] | WallchainSwapCall[]>([])
+  const [reverted, setReverted] = useState<RevertedWallchainSwapCall | undefined>(undefined)
   const { data: walletClient } = useWalletClient()
 
   const [srcToken, dstToken] = extractTokensFromTrade(trade)
@@ -183,39 +189,52 @@ export function useWallchainSwapCallArguments(
       return
     }
 
-    const callback = async () => {
-      try {
-        const spender = (await sdk.getSpender()) as `0x${string}`
+    wrappedLoadData(account, sdk, previousSwapCalls).then(async (newerResponse) => {
+      if (newerResponse[0] === 'not-found') {
+        setSwapCalls(previousSwapCalls)
+      } else {
+        const haveAllowance = await sdk.hasEnoughAllowance(srcToken, account, amountIn)
+        if (!haveAllowance) {
+          setSwapCalls(previousSwapCalls)
+          setReverted({ reverted: 'insufficient allowance' })
+        } else {
+          const callback = async () => {
+            try {
+              const spender = (await sdk.getSpender()) as `0x${string}`
 
-        let witness: false | Awaited<ReturnType<typeof sdk.signPermit>> = false
-        if (needPermit) {
-          witness = await sdk.signPermit(srcToken as `0x${string}`, account, spender, amountIn)
+              let witness: false | Awaited<ReturnType<typeof sdk.signPermit>> = false
+              if (needPermit) {
+                witness = await sdk.signPermit(srcToken as `0x${string}`, account, spender, amountIn)
+              }
+
+              const data = await sdk.createNewTransaction(
+                account,
+                needPermit,
+                previousSwapCalls[0].calldata,
+                amountIn,
+                srcToken as `0x${string}`,
+                dstToken as `0x${string}`,
+                newerResponse[3] as string,
+                { ...(newerResponse[2] as TMEVFoundResponse['searcher_request']), from: account },
+                witness,
+              )
+
+              return {
+                address: data.to as `0x${string}`,
+                calldata: data.data as `0x${string}`,
+                value: previousSwapCalls[0].value as `0x${string}`,
+              }
+            } catch (e) {
+              return previousSwapCalls[0]
+            }
+          }
+
+          setSwapCalls([{ getCall: callback }])
+          setReverted(undefined)
         }
-
-        const data = await sdk.createNewTransaction(
-          account,
-          needPermit,
-          previousSwapCalls[0].calldata,
-          amountIn,
-          srcToken as `0x${string}`,
-          dstToken as `0x${string}`,
-          masterInput[1],
-          { ...masterInput[0], from: account },
-          witness,
-        )
-
-        return {
-          address: data.to as `0x${string}`,
-          calldata: data.data as `0x${string}`,
-          value: previousSwapCalls[0].value as `0x${string}`,
-        }
-      } catch (e) {
-        return previousSwapCalls[0]
       }
-    }
-
-    setSwapCalls([{ getCall: callback }])
+    })
   }, [account, previousSwapCalls, masterInput, srcToken, dstToken, amountIn, needPermit, walletClient, sdk])
 
-  return swapCalls
+  return [swapCalls, reverted]
 }

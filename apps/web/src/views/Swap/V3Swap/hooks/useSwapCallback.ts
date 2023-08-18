@@ -9,6 +9,7 @@ import { useUserSlippage } from '@pancakeswap/utils/user'
 import { INITIAL_ALLOWED_SLIPPAGE } from 'config/constants'
 import { useSwapState } from 'state/swap/hooks'
 import { basisPointsToPercent } from 'utils/exchange'
+import { Address, Hex } from 'viem'
 
 import useAccountActiveChain from 'hooks/useAccountActiveChain'
 import { SendTransactionResult } from 'wagmi/actions'
@@ -16,17 +17,20 @@ import useSendSwapTransaction from './useSendSwapTransaction'
 import { useSwapCallArguments } from './useSwapCallArguments'
 
 import { useWallchainSwapCallArguments } from './useWallchain'
+import type { TWallchainMasterInput } from './useWallchain'
 
 export enum SwapCallbackState {
   INVALID,
   LOADING,
   VALID,
+  REVERTED,
 }
 
 interface UseSwapCallbackReturns {
   state: SwapCallbackState
   callback?: () => Promise<SendTransactionResult>
   error?: ReactNode
+  reason?: string
 }
 interface UseSwapCallbackArgs {
   trade: SmartRouterTrade<TradeType> | undefined | null // trade to execute, required
@@ -35,7 +39,17 @@ interface UseSwapCallbackArgs {
   // signatureData: SignatureData | null | undefined
   deadline?: bigint
   feeOptions?: FeeOptions
-  wallchainMasterInput?: string
+  wallchainMasterInput?: TWallchainMasterInput
+}
+
+interface SwapCall {
+  address: Address
+  calldata: Hex
+  value: Hex
+}
+
+interface WallchainSwapCall {
+  getCall: () => Promise<SwapCall>
 }
 
 // returns a function that will execute a swap, if the parameters are all valid
@@ -62,12 +76,30 @@ export function useSwapCallback({
     deadline,
     feeOptions,
   )
-  const wallchainSwapCalls = useWallchainSwapCallArguments(trade, swapCalls, account, wallchainMasterInput)
-  const { callback } = useSendSwapTransaction(account, chainId, trade, wallchainSwapCalls)
+  const [wallchainSwapCalls, wallchainReverted] = useWallchainSwapCallArguments(
+    trade,
+    swapCalls,
+    account,
+    wallchainMasterInput,
+  )
+
+  const { callback } = useSendSwapTransaction(
+    account,
+    chainId,
+    trade,
+    wallchainSwapCalls as SwapCall[] | WallchainSwapCall[],
+    wallchainReverted,
+  )
 
   return useMemo(() => {
     if (!trade || !account || !chainId || !callback) {
       return { state: SwapCallbackState.INVALID, error: t('Missing dependencies') }
+    }
+    if (wallchainReverted) {
+      return {
+        state: SwapCallbackState.REVERTED,
+        reason: wallchainReverted.reverted,
+      }
     }
     if (!recipient) {
       if (recipientAddress !== null) {
@@ -80,5 +112,5 @@ export function useSwapCallback({
       state: SwapCallbackState.VALID,
       callback: async () => callback(),
     }
-  }, [trade, account, chainId, callback, recipient, recipientAddress, t])
+  }, [trade, account, chainId, callback, recipient, recipientAddress, t, wallchainReverted])
 }

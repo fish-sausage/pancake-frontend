@@ -44,6 +44,10 @@ interface FailedCall extends SwapCallEstimate {
   error: Error
 }
 
+interface TWallchainReverted {
+  reverted: string
+}
+
 export class TransactionRejectedError extends Error {}
 
 // returns a function that will execute a swap, if the parameters are all valid
@@ -52,6 +56,7 @@ export default function useSendSwapTransaction(
   chainId?: number,
   trade?: SmartRouterTrade<TradeType>, // trade to execute, required
   swapCalls: SwapCall[] | WallchainSwapCall[] = [],
+  wallchainReverted?: TWallchainReverted,
 ): { callback: null | (() => Promise<SendTransactionResult>) } {
   const { t } = useTranslation()
   const addTransaction = useTransactionAdder()
@@ -62,6 +67,9 @@ export default function useSendSwapTransaction(
   const recipientAddress = recipient === null ? account : recipient
 
   return useMemo(() => {
+    if (wallchainReverted) {
+      return { callback: null, reverted: true }
+    }
     if (!trade || !sendTransactionAsync || !account || !chainId || !publicClient) {
       return { callback: null }
     }
@@ -213,5 +221,6 @@ export default function useSendSwapTransaction(
     recipientAddress,
     recipient,
     addTransaction,
+    wallchainReverted,
   ])
 }

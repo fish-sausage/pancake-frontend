@@ -87,9 +87,9 @@ export const SwapCommitButton = memo(function SwapCommitButton({
 
   const deadline = useTransactionDeadline()
   const [statusWallchain, approvalAddressForWallchain, wallchainMasterInput] = useWallchainApi(trade, deadline)
-
+  const [wallchainSecondaryStatus, setWallchainSecondaryStatus] = useState('not-found')
   const routerAddress =
-    statusWallchain === 'found'
+    statusWallchain === 'found' || wallchainSecondaryStatus === 'found'
       ? approvalAddressForWallchain
       : SMART_ROUTER_ADDRESSES[trade?.inputAmount?.currency?.chainId]
   const amountToApprove = slippageAdjustedAmounts[Field.INPUT]
@@ -110,7 +110,11 @@ export const SwapCommitButton = memo(function SwapCommitButton({
   const parsedIndepentFieldAmount = parsedAmounts[independentField]
 
   // the callback to execute the swap
-  const { callback: swapCallback, error: swapCallbackError } = useSwapCallback({
+  const {
+    callback: swapCallback,
+    error: swapCallbackError,
+    reason: revertReason,
+  } = useSwapCallback({
     trade,
     deadline,
     wallchainMasterInput,
@@ -153,11 +157,17 @@ export const SwapCommitButton = memo(function SwapCommitButton({
       return
     }
     if (!swapCallback) {
+      if (revertReason === 'insufficient allowance') {
+        setApprovalSubmitted(false)
+        setWallchainSecondaryStatus('found')
+        return
+      }
       return
     }
     setSwapState({ attemptingTxn: true, tradeToConfirm, swapErrorMessage: undefined, txHash: undefined })
     swapCallback()
       .then((res) => {
+        setWallchainSecondaryStatus('not-found')
         setSwapState({ attemptingTxn: false, tradeToConfirm, swapErrorMessage: undefined, txHash: res.hash })
       })
       .catch((error) => {
@@ -165,6 +175,7 @@ export const SwapCommitButton = memo(function SwapCommitButton({
           handleConfirmDismiss()
           return
         }
+        setWallchainSecondaryStatus('not-found')
         setSwapState({
           attemptingTxn: false,
           tradeToConfirm,
@@ -172,7 +183,7 @@ export const SwapCommitButton = memo(function SwapCommitButton({
           txHash: undefined,
         })
       })
-  }, [priceImpactWithoutFee, swapCallback, tradeToConfirm, t, setSwapState, handleConfirmDismiss])
+  }, [priceImpactWithoutFee, swapCallback, tradeToConfirm, t, setSwapState, handleConfirmDismiss, revertReason])
 
   const handleAcceptChanges = useCallback(() => {
     setSwapState({ tradeToConfirm: trade, swapErrorMessage, txHash, attemptingTxn })
