@@ -76,30 +76,18 @@ export function useSwapCallback({
     deadline,
     feeOptions,
   )
-  const [wallchainSwapCalls, wallchainReverted] = useWallchainSwapCallArguments(
-    trade,
-    swapCalls,
-    account,
-    wallchainMasterInput,
-  )
+  const wallchainSwapCalls = useWallchainSwapCallArguments(trade, swapCalls, account, wallchainMasterInput)
 
   const { callback } = useSendSwapTransaction(
     account,
     chainId,
     trade,
     wallchainSwapCalls as SwapCall[] | WallchainSwapCall[],
-    wallchainReverted,
   )
 
   return useMemo(() => {
     if (!trade || !account || !chainId || !callback) {
       return { state: SwapCallbackState.INVALID, error: t('Missing dependencies') }
-    }
-    if (wallchainReverted) {
-      return {
-        state: SwapCallbackState.REVERTED,
-        reason: wallchainReverted.reverted,
-      }
     }
     if (!recipient) {
       if (recipientAddress !== null) {
@@ -112,5 +100,5 @@ export function useSwapCallback({
       state: SwapCallbackState.VALID,
       callback: async () => callback(),
     }
-  }, [trade, account, chainId, callback, recipient, recipientAddress, t, wallchainReverted])
+  }, [trade, account, chainId, callback, recipient, recipientAddress, t])
 }

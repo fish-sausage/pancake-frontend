@@ -56,7 +56,6 @@ export default function useSendSwapTransaction(
   chainId?: number,
   trade?: SmartRouterTrade<TradeType>, // trade to execute, required
   swapCalls: SwapCall[] | WallchainSwapCall[] = [],
-  wallchainReverted?: TWallchainReverted,
 ): { callback: null | (() => Promise<SendTransactionResult>) } {
   const { t } = useTranslation()
   const addTransaction = useTransactionAdder()
@@ -67,9 +66,6 @@ export default function useSendSwapTransaction(
   const recipientAddress = recipient === null ? account : recipient
 
   return useMemo(() => {
-    if (wallchainReverted) {
-      return { callback: null, reverted: true }
-    }
     if (!trade || !sendTransactionAsync || !account || !chainId || !publicClient) {
       return { callback: null }
     }
