@@ -44,10 +44,6 @@ interface FailedCall extends SwapCallEstimate {
   error: Error
 }
 
-interface TWallchainReverted {
-  reverted: string
-}
-
 export class TransactionRejectedError extends Error {}
 
 // returns a function that will execute a swap, if the parameters are all valid
@@ -217,6 +213,5 @@ export default function useSendSwapTransaction(
     recipientAddress,
     recipient,
     addTransaction,
-    wallchainReverted,
   ])
 }
