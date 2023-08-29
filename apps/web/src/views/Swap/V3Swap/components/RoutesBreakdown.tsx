@@ -23,7 +23,7 @@ export const RoutesBreakdown = memo(function RoutesBreakdown({ routes = [], isMM
   const [wallchainStatus] = useWallchainStatus()
   const { t } = useTranslation()
   const routeDisplayModal = useModalV2()
-  const deferrWallchainStatus = useDebounce(wallchainStatus, 500)
+  const deferWallchainStatus = useDebounce(wallchainStatus, 500)
 
   if (!routes.length) {
     return null
@@ -36,11 +36,11 @@ export const RoutesBreakdown = memo(function RoutesBreakdown({ routes = [], isMM
       <RouteInfoContainer>
         <span style={{ display: 'flex', alignItems: 'center' }}>
           <Text fontSize="14px" color="textSubtle">
-            {isMM ? t('MM Route') : deferrWallchainStatus === 'found' ? t('Bonus Route') : t('Route')}
+            {isMM ? t('MM Route') : deferWallchainStatus === 'found' ? t('Bonus Route') : t('Route')}
           </Text>
           <QuestionHelper
             text={
-              deferrWallchainStatus === 'found'
+              deferWallchainStatus === 'found'
                 ? t(
                     'A Bonus route provided by API is automatically selected for your trade to achieve the best price for your trade.',
                   )
