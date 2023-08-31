@@ -40,7 +40,7 @@ const limiter = new Bottleneck({
 
 const overrideAddresses = {
   // MetaSwapWrapper
-  56: '0x837E29B644fD051CfAcabb882f2EBf408b9cd7Ee',
+  56: '0x662ccE1A8A940492fD33F6B47459D9EFDd039d5A',
 }
 
 const loadData = async (account: string, sdk: WallchainSDK, swapCalls: SwapCall[]) => {
