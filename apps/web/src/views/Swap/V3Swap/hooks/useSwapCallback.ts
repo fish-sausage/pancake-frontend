@@ -82,7 +82,8 @@ export function useSwapCallback({
     account,
     chainId,
     trade,
-    wallchainSwapCalls as SwapCall[] | WallchainSwapCall[],
+    // @ts-expect-error uncompatible types side-by-side cause wrong type assertion
+    wallchainSwapCalls,
   )
 
   return useMemo(() => {

@@ -27,7 +27,7 @@ interface SwapCall {
 }
 
 interface WallchainSwapCall {
-  getCall: () => Promise<SwapCall>
+  getCall: () => Promise<SwapCall & { gas: string }>
 }
 
 interface SwapCallEstimate {
@@ -71,9 +71,10 @@ export default function useSendSwapTransaction(
           swapCalls.map((call) => {
             const { address, calldata, value } = call
             if ('getCall' in call) {
+              // Only WallchainSwapCall, don't use rest of pipeline
               return {
                 call,
-                gasEstimate: 2000000n,
+                gasEstimate: undefined,
               }
             }
             const tx =
@@ -118,16 +119,28 @@ export default function useSendSwapTransaction(
           bestCallOption = firstNoErrorCall
         }
 
-        const { address, calldata, value } =
-          'getCall' in bestCallOption.call ? await bestCallOption.call.getCall() : bestCallOption.call
+        const call =
+          'getCall' in bestCallOption.call
+            ? await bestCallOption.call.getCall()
+            : (bestCallOption.call as SwapCall & { gas?: string | bigint })
+
+        if ('gas' in call && call.gas) {
+          // prepared Wallchain's call have gas estimate inside
+          call.gas = BigInt(call.gas)
+        } else {
+          call.gas =
+            'gasEstimate' in bestCallOption && bestCallOption.gasEstimate
+              ? calculateGasMargin(bestCallOption.gasEstimate)
+              : undefined
+        }
 
         return sendTransactionAsync({
           account,
           chainId,
-          to: address,
-          data: calldata,
-          value: value && !isZero(value) ? hexToBigInt(value) : 0n,
-          ...('gasEstimate' in bestCallOption ? { gas: calculateGasMargin(bestCallOption.gasEstimate) } : {}),
+          to: call.address,
+          data: call.calldata,
+          value: call.value && !isZero(call.value) ? hexToBigInt(call.value) : 0n,
+          gas: call.gas,
         })
           .then((response) => {
             const inputSymbol = trade.inputAmount.currency.symbol
@@ -194,7 +207,7 @@ export default function useSendSwapTransaction(
               throw new TransactionRejectedError(t('Transaction rejected'))
             } else {
               // otherwise, the error was unexpected and we need to convey that
-              console.error(`Swap failed`, error, address, calldata, value)
+              console.error(`Swap failed`, error, call.address, call.calldata, call.value)
 
               throw new Error(`Swap failed: ${transactionErrorToUserReadableMessage(error, t)}`)
             }

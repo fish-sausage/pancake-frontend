@@ -55,13 +55,13 @@ const loadData = async (account: string, sdk: WallchainSDK, swapCalls: SwapCall[
         data: swapCalls[0].calldata,
       })
       if (resp.MEVFound) {
-        return ['found', approvalFor, resp.searcherRequest, resp.searcherSignature] as const
+        return ['found', approvalFor, resp.searcherRequest, resp.searcherSignature, resp.suggestedGas] as const
       }
     } catch (e) {
-      return ['not-found', undefined, undefined, undefined]
+      return ['not-found', undefined, undefined, undefined, undefined]
     }
   }
-  return ['not-found', undefined, undefined, undefined]
+  return ['not-found', undefined, undefined, undefined, undefined]
 }
 const wrappedLoadData = limiter.wrap(loadData)
 
@@ -188,47 +188,53 @@ export function useWallchainSwapCallArguments(
       return
     }
 
-    loadData(account, sdk, previousSwapCalls).then(
-      async ([status, _approvalAddress, searcherRequest, searcherSignature]) => {
-        if (status === 'not-found') {
-          setSwapCalls(previousSwapCalls)
-        } else {
-          const callback = async () => {
-            try {
-              const spender = (await sdk.getSpender()) as `0x${string}`
-              let witness: false | Awaited<ReturnType<typeof sdk.signPermit>> = false
+    loadData(account, sdk, previousSwapCalls).then(async (response) => {
+      const [status, _approvalAddress, searcherRequest, searcherSignature, suggestedGas] = response as [
+        WallchainStatus,
+        string | undefined,
+        TMEVFoundResponse['searcherRequest'] | undefined,
+        string | undefined,
+        string | undefined,
+      ]
+      if (status === 'not-found') {
+        setSwapCalls(previousSwapCalls)
+      } else {
+        const callback = async () => {
+          try {
+            const spender = (await sdk.getSpender()) as `0x${string}`
+            let witness: false | Awaited<ReturnType<typeof sdk.signPermit>> = false
 
-              if (needPermit) {
-                witness = await sdk.signPermit(srcToken as `0x${string}`, account, spender, amountIn)
-              }
-
-              const data = await sdk.createNewTransaction(
-                previousSwapCalls[0].address,
-                false,
-                previousSwapCalls[0].calldata,
-                amountIn,
-                previousSwapCalls[0].value,
-                srcToken as `0x${string}`,
-                dstToken as `0x${string}`,
-                searcherSignature as `0x${string}`,
-                searcherRequest as unknown as TMEVFoundResponse['searcherRequest'],
-                witness,
-              )
-
-              return {
-                address: data.to as `0x${string}`,
-                calldata: data.data as `0x${string}`,
-                value: data.value as `0x${string}`,
-              }
-            } catch (e) {
-              return previousSwapCalls[0]
+            if (needPermit) {
+              witness = await sdk.signPermit(srcToken as `0x${string}`, account, spender, amountIn)
             }
-          }
 
-          setSwapCalls([{ getCall: callback }])
+            const data = await sdk.createNewTransaction(
+              previousSwapCalls[0].address,
+              false,
+              previousSwapCalls[0].calldata,
+              amountIn,
+              previousSwapCalls[0].value,
+              srcToken as `0x${string}`,
+              dstToken as `0x${string}`,
+              searcherSignature as `0x${string}`,
+              searcherRequest as unknown as TMEVFoundResponse['searcherRequest'],
+              witness,
+            )
+
+            return {
+              address: data.to as `0x${string}`,
+              calldata: data.data as `0x${string}`,
+              value: data.value as `0x${string}`,
+              gas: suggestedGas,
+            }
+          } catch (e) {
+            return previousSwapCalls[0]
+          }
         }
-      },
-    )
+
+        setSwapCalls([{ getCall: callback }])
+      }
+    })
   }, [account, previousSwapCalls, masterInput, srcToken, dstToken, amountIn, needPermit, walletClient, sdk])
 
   return swapCalls
