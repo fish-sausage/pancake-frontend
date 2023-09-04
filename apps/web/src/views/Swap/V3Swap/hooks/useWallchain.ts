@@ -26,7 +26,7 @@ interface SwapCall {
   value: Hex
 }
 interface WallchainSwapCall {
-  getCall: () => Promise<SwapCall | { error: string }>
+  getCall: () => Promise<SwapCall | { error: Error }>
 }
 
 export type WallchainStatus = 'found' | 'pending' | 'not-found'
@@ -156,12 +156,14 @@ export function useWallchainSwapCallArguments(
   trade: SmartRouterTrade<TradeType> | undefined | null,
   previousSwapCalls: { address: `0x${string}`; calldata: `0x${string}`; value: `0x${string}` }[] | undefined | null,
   account: string | undefined | null,
+  onWallchainDrop: () => void,
   masterInput?: [TMEVFoundResponse['searcherRequest'], string],
 ): SwapCall[] | WallchainSwapCall[] {
   const [swapCalls, setSwapCalls] = useState<SwapCall[] | WallchainSwapCall[]>([])
   const { data: walletClient } = useWalletClient()
 
   const [srcToken, dstToken] = extractTokensFromTrade(trade)
+  const isNative = trade?.inputAmount?.currency?.isNative
   const amountIn = trade?.inputAmount?.numerator?.toString() as `0x${string}`
   const needPermit = !trade?.inputAmount?.currency?.isNative
 
@@ -171,6 +173,7 @@ export function useWallchainSwapCallArguments(
     if (
       !walletClient ||
       !masterInput ||
+      !masterInput[0] ||
       !srcToken ||
       !dstToken ||
       !amountIn ||
@@ -197,7 +200,18 @@ export function useWallchainSwapCallArguments(
         string | undefined,
       ]
       if (status === 'not-found') {
-        setSwapCalls(previousSwapCalls)
+        if (isNative) {
+          setSwapCalls(previousSwapCalls)
+        } else {
+          // if previous call succeded but MEV disappeared need to reset allowance flow
+          const callback = async () => {
+            onWallchainDrop()
+            return {
+              error: new Error('MEV not found'),
+            }
+          }
+          setSwapCalls([{ getCall: callback }])
+        }
       } else {
         const callback = async () => {
           try {
@@ -227,15 +241,27 @@ export function useWallchainSwapCallArguments(
               value: data.value as `0x${string}`,
               gas: suggestedGas,
             }
-          } catch (e) {
-            return previousSwapCalls[0]
+          } catch (error) {
+            return { error } as { error: Error }
           }
         }
 
         setSwapCalls([{ getCall: callback }])
       }
     })
-  }, [account, previousSwapCalls, masterInput, srcToken, dstToken, amountIn, needPermit, walletClient, sdk])
+  }, [
+    account,
+    previousSwapCalls,
+    masterInput,
+    srcToken,
+    dstToken,
+    amountIn,
+    needPermit,
+    walletClient,
+    sdk,
+    onWallchainDrop,
+    isNative,
+  ])
 
   return swapCalls
 }

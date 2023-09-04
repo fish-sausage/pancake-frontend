@@ -39,6 +39,7 @@ interface UseSwapCallbackArgs {
   // signatureData: SignatureData | null | undefined
   deadline?: bigint
   feeOptions?: FeeOptions
+  onWallchainDrop: () => void
   wallchainMasterInput?: TWallchainMasterInput
 }
 
@@ -59,6 +60,7 @@ export function useSwapCallback({
   // signatureData,
   deadline,
   feeOptions,
+  onWallchainDrop,
   wallchainMasterInput,
 }: UseSwapCallbackArgs): UseSwapCallbackReturns {
   const { t } = useTranslation()
@@ -76,7 +78,13 @@ export function useSwapCallback({
     deadline,
     feeOptions,
   )
-  const wallchainSwapCalls = useWallchainSwapCallArguments(trade, swapCalls, account, wallchainMasterInput)
+  const wallchainSwapCalls = useWallchainSwapCallArguments(
+    trade,
+    swapCalls,
+    account,
+    onWallchainDrop,
+    wallchainMasterInput,
+  )
 
   const { callback } = useSendSwapTransaction(
     account,

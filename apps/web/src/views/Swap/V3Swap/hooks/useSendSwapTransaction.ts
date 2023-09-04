@@ -124,6 +124,10 @@ export default function useSendSwapTransaction(
             ? await bestCallOption.call.getCall()
             : (bestCallOption.call as SwapCall & { gas?: string | bigint })
 
+        if ('error' in call) {
+          throw new Error('Route lost. Need to restart.')
+        }
+
         if ('gas' in call && call.gas) {
           // prepared Wallchain's call have gas estimate inside
           call.gas = BigInt(call.gas)

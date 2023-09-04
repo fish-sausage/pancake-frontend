@@ -109,7 +109,13 @@ export const SwapCommitButton = memo(function SwapCommitButton({
   const parsedAmounts = useParsedAmounts(trade, currencyBalances, showWrap)
   const parsedIndepentFieldAmount = parsedAmounts[independentField]
 
-  // the callback to execute the swap
+  // check if user has gone through approval process, used to show two step buttons, reset on token change
+  const [approvalSubmitted, setApprovalSubmitted] = useState<boolean>(false)
+
+  const onWallchainDrop = useCallback(() => {
+    setApprovalSubmitted(false)
+  }, [setApprovalSubmitted])
+
   const {
     callback: swapCallback,
     error: swapCallbackError,
@@ -117,6 +123,7 @@ export const SwapCommitButton = memo(function SwapCommitButton({
   } = useSwapCallback({
     trade,
     deadline,
+    onWallchainDrop,
     wallchainMasterInput,
   })
 
@@ -131,9 +138,6 @@ export const SwapCommitButton = memo(function SwapCommitButton({
     swapErrorMessage: undefined,
     txHash: undefined,
   })
-
-  // check if user has gone through approval process, used to show two step buttons, reset on token change
-  const [approvalSubmitted, setApprovalSubmitted] = useState<boolean>(false)
 
   // Handlers
   const handleConfirmDismiss = useCallback(() => {
