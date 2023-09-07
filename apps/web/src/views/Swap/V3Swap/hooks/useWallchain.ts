@@ -43,6 +43,10 @@ const overrideAddresses = {
   56: '0x662ccE1A8A940492fD33F6B47459D9EFDd039d5A',
 }
 
+const originators = {
+  56: ['0xaAB27a41646A4b7e660f2BFc6e22a41550665fef'],
+}
+
 const loadData = async (account: string, sdk: WallchainSDK, swapCalls: SwapCall[]) => {
   if (await sdk.supportsChain()) {
     const approvalFor = await sdk.getSpenderForAllowance()
@@ -89,6 +93,7 @@ function useWallchainSDK() {
         keys: WallchainKeys,
         provider: walletClient?.transport as TOptions['provider'],
         overrideAddresses,
+        originators,
       })
     },
   )
@@ -223,6 +228,7 @@ export function useWallchainSwapCallArguments(
             }
 
             const data = await sdk.createNewTransaction(
+              previousSwapCalls[0].address,
               previousSwapCalls[0].address,
               false,
               previousSwapCalls[0].calldata,
