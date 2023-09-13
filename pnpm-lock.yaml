@@ -632,8 +632,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1(@types/node@13.13.52)(next@13.4.2)(webpack@5.74.0)
       '@wallchain/sdk':
-        specifier: ^0.6.7
-        version: 0.6.7
+        specifier: ^0.6.8
+        version: 0.6.8
       ajv:
         specifier: ^6.12.3
         version: 6.12.6
@@ -11307,8 +11307,8 @@ packages:
       - utf-8-validate
       - zod
 
-  /@wallchain/sdk@0.6.7:
-    resolution: {integrity: sha512-JspSOp6T6QW20kS99dQwT6u2gXVNkIiFlS+2xwJa8SXNkk4npVgsiaVuJD80oNT9oQ0LW0y/Je03tfApXkorxg==}
+  /@wallchain/sdk@0.6.8:
+    resolution: {integrity: sha512-k1RnyXMOi1Ajv12f8TDTP6zRkpw1zl6kl0J/Ul3DT+pIeMhUx0gEsAUDXFaBZtZlN1oNj966RVxPjuHQkpIRgA==}
     dependencies:
       '@types/randombytes': 2.0.0
       '@uniswap/permit2-sdk': 1.2.0

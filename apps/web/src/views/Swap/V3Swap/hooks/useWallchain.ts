@@ -38,9 +38,12 @@ const limiter = new Bottleneck({
   highWater: 1, // only queue 1 request at a time, newer request will drop older
 })
 
-const overrideAddresses = {
+const addresses = {
   // MetaSwapWrapper
-  56: '0x662ccE1A8A940492fD33F6B47459D9EFDd039d5A',
+  56: '0xC0ffeE00c3F5A11369EeB57693C56Fd939dc6DBb',
+}
+const permitAddresses = {
+  56: '0xD1F646ADb4876A58BFf81A511D5B247C66471343',
 }
 
 const originators = {
@@ -92,7 +95,8 @@ function useWallchainSDK() {
       return new WallchainSDK({
         keys: WallchainKeys,
         provider: walletClient?.transport as TOptions['provider'],
-        overrideAddresses,
+        addresses,
+        permitAddresses,
         originators,
       })
     },
