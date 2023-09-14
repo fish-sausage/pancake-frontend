@@ -122,6 +122,7 @@ export function useWallchainApi(
   const { account } = useAccountActiveChain()
   const [allowedSlippageRaw] = useUserSlippage() || [INITIAL_ALLOWED_SLIPPAGE]
   const allowedSlippage = useMemo(() => basisPointsToPercent(allowedSlippageRaw), [allowedSlippageRaw])
+  const [lastUpdate, setLastUpdate] = useState(0)
 
   const sdk = useWallchainSDK()
 
@@ -130,6 +131,7 @@ export function useWallchainApi(
   useEffect(() => {
     if (!sdk || !walletClient || !trade) return
     if (trade.routes.length === 0 || trade.inputAmount.currency.chainId !== ChainId.BSC) return
+    if (lastUpdate > Date.now() - 2000) return
     const includesPair = trade.routes.some(
       (route) =>
         (route.inputAmount.wrapped.currency.equals(WallchainPairs[0]) &&
@@ -138,18 +140,23 @@ export function useWallchainApi(
           route.outputAmount.wrapped.currency.equals(WallchainPairs[0])),
     )
     if (includesPair) {
-      setStatus('pending')
+      if (status !== 'found') {
+        // we need status only for the first time, to ensure that first response is loaded, but then we expect to reuse response for 2 seconds (line 135)
+        setStatus('pending')
+      }
       wrappedLoadData(account, sdk, swapCalls)
         .then(([reqStatus, address, searcherRequest, searcherSignature]) => {
           setStatus(reqStatus as WallchainStatus)
           setApprovalAddress(address)
           setMasterInput([searcherRequest as TMEVFoundResponse['searcherRequest'], searcherSignature])
+          setLastUpdate(Date.now())
         })
         .catch((e) => {
           setStatus('not-found')
           setApprovalAddress(undefined)
           setMasterInput(undefined)
           captureException(e)
+          setLastUpdate(Date.now())
         })
     } else {
       setStatus('not-found')
